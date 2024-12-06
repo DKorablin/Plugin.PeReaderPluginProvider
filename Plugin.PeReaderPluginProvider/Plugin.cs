@@ -28,6 +28,9 @@ namespace Plugin.PeReaderPluginProvider
 		/// <summary>Parent plugin provider</summary>
 		IPluginProvider IPluginProvider.ParentProvider { get; set; }
 
+		/// <summary>Create instance if <see cref="Plugin"/> with reference to <see cref="IHost"/> instance.</summary>
+		/// <param name="host">The host instance reference.</param>
+		/// <exception cref="ArgumentNullException">The host should be valid.</exception>
 		public Plugin(IHost host)
 			=> this.Host = host ?? throw new ArgumentNullException(nameof(host));
 
