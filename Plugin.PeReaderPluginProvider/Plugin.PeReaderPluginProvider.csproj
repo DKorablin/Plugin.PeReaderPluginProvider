@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<OutputType>Library</OutputType>
+		<RootNamespace>Plugin.PeReaderPluginProvider</RootNamespace>
+		<GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+		<AssemblyTitle>Plugin.PeReaderPluginProvider</AssemblyTitle>
+		<Company>Danila Korablin</Company>
+		<Product>Plugin loader assemblty with PE reader file check before loading in current domain</Product>
+		<Copyright>Copyright © Danila Korablin 2023-2024</Copyright>
+		<Configuration>Debug</Configuration>
+		<AssemblyVersion>1.2.*</AssemblyVersion>
+		<FileVersion>1.2.0.0</FileVersion>
+		<Deterministic>false</Deterministic>
+		<CopyLocalLockFileAssemblies>True</CopyLocalLockFileAssemblies>
+	</PropertyGroup>
+	<ItemGroup>
+		<Compile Include="..\PluginProviders.Shared\FilePluginArgs.cs" Link="FilePluginArgs.cs" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="AlphaOmega.PEReader" Version="1.3.1">
+			<IncludeAssets>all</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="SAL.Flatbed" Version="1.2.9.2">
+			<PrivateAssets>all</PrivateAssets>
+			<ExcludeAssets>runtime</ExcludeAssets>
+		</PackageReference>
+		<PackageReference Include="System.Configuration.ConfigurationManager" Version="7.0.0" />
+	</ItemGroup>
+</Project>
