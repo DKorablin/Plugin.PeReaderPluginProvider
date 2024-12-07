@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Plugin.FilePluginProvider;
 using Plugin.PeReaderPluginProvider.Reader;
@@ -12,7 +13,7 @@ namespace Plugin.PeReaderPluginProvider
 	/// <summary>Plugins loader from file system but it's using separate sandbox to find appropriate assemblies to load</summary>
 	public class Plugin : IPluginProvider
 	{
-		private HashSet<String> _recursiveAssemblyNameCheck = new HashSet<String>();
+		private readonly HashSet<String> _recursiveAssemblyNameCheck = new HashSet<String>();
 		private TraceSource _trace;
 
 		private TraceSource Trace { get => this._trace ?? (this._trace = Plugin.CreateTraceSource<Plugin>()); }
@@ -55,18 +56,19 @@ namespace Plugin.PeReaderPluginProvider
 
 		void IPluginProvider.LoadPlugins()
 		{
-			//System.Diagnostics.Debugger.Launch();
-			foreach(String pluginPath in this.Args.PluginPath)
-				if(Directory.Exists(pluginPath))
-				{
-					foreach(AssemblyTypesInfo info in AssemblyReader.Check(pluginPath))
-						this.LoadAssembly(info, ConnectMode.Startup);
+			foreach(String pluginPath in this.Args.PluginPath.Where(p => Directory.Exists(p)))
+			{
+				foreach(AssemblyTypesInfo info in AssemblyReader.Check(pluginPath))
+					this.LoadAssembly(info, ConnectMode.Startup);
 
-					FileSystemWatcher watcher = new FileSystemWatcher(pluginPath, Constant.LibrarySearchExtension);
+				foreach(String extension in FilePluginArgs.LibraryExtensions)
+				{
+					FileSystemWatcher watcher = new FileSystemWatcher(pluginPath, "*" + extension);
 					watcher.Changed += new FileSystemEventHandler(Monitor_Changed);
 					watcher.EnableRaisingEvents = true;
 					this.Monitors.Add(watcher);
 				}
+			}
 		}
 
 		Assembly IPluginProvider.ResolveAssembly(String assemblyName)
@@ -78,26 +80,26 @@ namespace Plugin.PeReaderPluginProvider
 			if(isSuccess)
 			{//This check is used when PluginProvied tries to resolve assembly while resolving assembly with the same name
 				AssemblyName targetName = new AssemblyName(assemblyName);
-				foreach(String pluginPath in this.Args.PluginPath)
-					if(Directory.Exists(pluginPath))
-						foreach(String file in Directory.GetFiles(pluginPath, Constant.LibrarySearchExtension, SearchOption.AllDirectories))//Поиск только файлов с расширением .dll
-							try
-							{
-								AssemblyName name = AssemblyName.GetAssemblyName(file);
-								if(name.FullName == targetName.FullName)
-									return Assembly.LoadFile(file);
-								//return assembly;//TODO: Reference DLL из оперативной памяти не цепляются!
-							} catch(BadImageFormatException)
-							{
-								continue;
-							} catch(FileLoadException)
-							{
-								continue;
-							} catch(Exception exc)
-							{
-								exc.Data.Add("Library", file);
-								this.Trace.TraceData(TraceEventType.Error, 1, exc);
-							}
+				foreach(String pluginPath in this.Args.PluginPath.Where(p => Directory.Exists(p)))
+					foreach(String file in Directory.EnumerateFiles(pluginPath, "*.*", SearchOption.AllDirectories)
+						.Where(f => FilePluginArgs.CheckFileExtension(f)))//Поиск только файлов с расширением .dll (UPD: Added logic to search for all supported file extensions)
+						try
+						{
+							AssemblyName name = AssemblyName.GetAssemblyName(file);
+							if(name.FullName == targetName.FullName)
+								return Assembly.LoadFile(file);
+							//return assembly;//TODO: Reference DLL из оперативной памяти не цепляются!
+						} catch(BadImageFormatException)
+						{
+							continue;
+						} catch(FileLoadException)
+						{
+							continue;
+						} catch(Exception exc)
+						{
+							exc.Data.Add("Library", file);
+							this.Trace.TraceData(TraceEventType.Error, 1, exc);
+						}
 				this._recursiveAssemblyNameCheck.Remove(assemblyName);
 				this.Trace.TraceEvent(TraceEventType.Warning, 5, "Assembly {0} can't be resolved in path {1} by provider {2}", assemblyName, String.Join(",", this.Args.PluginPath), this.GetType());
 			} else
@@ -148,7 +150,6 @@ namespace Plugin.PeReaderPluginProvider
 			{
 				exc.Data.Add("Library", info.AssemblyPath);
 				this.Trace.TraceData(TraceEventType.Error, 1, exc);
-				return;
 			} catch(Exception exc)
 			{
 				exc.Data.Add("Library", info.AssemblyPath);

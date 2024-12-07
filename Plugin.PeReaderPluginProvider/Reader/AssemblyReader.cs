@@ -2,19 +2,23 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using AlphaOmega.Debug;
 using AlphaOmega.Debug.CorDirectory.Meta.Tables;
+using Plugin.FilePluginProvider;
 using SAL.Flatbed;
 
 namespace Plugin.PeReaderPluginProvider.Reader
 {
 	internal class AssemblyReader
 	{
-		private static Type PluginType = typeof(IPlugin);
+		private static readonly Type PluginType = typeof(IPlugin);
 
 		private String[] FilePath { get; }
+
 		private ManualResetEvent OnDone { get; set; }
+
 		public AssemblyTypesInfo[] Info { get; private set; }
 
 		public static IEnumerable<AssemblyTypesInfo> Check(String path)
@@ -22,15 +26,16 @@ namespace Plugin.PeReaderPluginProvider.Reader
 			List<ManualResetEvent> onDone = new List<ManualResetEvent>();
 			List<AssemblyReader> readers = new List<AssemblyReader>();
 
-			foreach(String filePath in Directory.EnumerateFiles(path, Constant.LibrarySearchExtension, SearchOption.AllDirectories))
-			{
-				ManualResetEvent evt = new ManualResetEvent(false);
-				AssemblyReader reader = new AssemblyReader(new String[] { filePath }, evt);
-				onDone.Add(evt);
-				readers.Add(reader);
+			foreach(String filePath in Directory.EnumerateFiles(path, "*.*", SearchOption.AllDirectories)
+				.Where(p => FilePluginArgs.CheckFileExtension(p)))
+				{
+					ManualResetEvent evt = new ManualResetEvent(false);
+					AssemblyReader reader = new AssemblyReader(new String[] { filePath }, evt);
+					onDone.Add(evt);
+					readers.Add(reader);
 
-				ThreadPool.QueueUserWorkItem(reader.Read);
-			}
+					ThreadPool.QueueUserWorkItem(reader.Read);
+				}
 
 			foreach(ManualResetEvent evt in onDone)
 				evt.WaitOne();
@@ -38,7 +43,7 @@ namespace Plugin.PeReaderPluginProvider.Reader
 			foreach(AssemblyReader reader in readers)
 				foreach(AssemblyTypesInfo info in reader.Info)
 				{
-					//reader.OnDone.WaitOne();
+					// reader.OnDone.WaitOne()
 					if(info != null)
 						yield return info;
 				}
@@ -47,14 +52,13 @@ namespace Plugin.PeReaderPluginProvider.Reader
 		protected AssemblyReader(String[] filePath, ManualResetEvent onDone)
 		{
 			this.FilePath = filePath;
-			this.Info = new AssemblyTypesInfo[FilePath.Length];
+			this.Info = new AssemblyTypesInfo[filePath.Length];
 			this.OnDone = onDone;
 		}
 
 		public void Read(Object threadContext)
 		{
-			for(Int32 loop = 0; loop < this.FilePath.Length; loop++)
-				this.Info[loop] = GetAssemblyTypes(FilePath[loop]);
+			this.Info = Array.ConvertAll(this.FilePath, (p) => { return GetAssemblyTypes(p); });
 			this.OnDone.Set();
 		}
 
