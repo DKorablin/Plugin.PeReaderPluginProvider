@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 [assembly: System.CLSCompliant(true)]
 
-#if NETSTANDARD
+#if NETSTANDARD || NETCOREAPP
 [assembly: AssemblyMetadata("ProjectUrl", "https://github.com/DKorablin/Plugin.PeReaderPluginProvider")]
 #else
 
