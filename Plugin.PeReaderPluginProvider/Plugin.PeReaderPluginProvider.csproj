@@ -21,7 +21,7 @@
 		<PackageReference Include="AlphaOmega.PEReader" Version="1.3.1">
 			<IncludeAssets>all</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="SAL.Flatbed" Version="1.2.9.2">
+		<PackageReference Include="SAL.Flatbed" Version="1.2.10">
 			<PrivateAssets>all</PrivateAssets>
 			<ExcludeAssets>runtime</ExcludeAssets>
 		</PackageReference>
