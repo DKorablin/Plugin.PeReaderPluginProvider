@@ -1,0 +1,20 @@
+<Project>
+	<Target Name="BeforeBuild" Condition="'$(TargetFramework)' == 'net20'">
+		<ItemGroup>
+			<AssemblyAttributes Include="AssemblyVersion">
+				<_Parameter1>$(Version)</_Parameter1>
+			</AssemblyAttributes>
+			<AssemblyAttributes Include="AssemblyFileVersion">
+				<_Parameter1>$(Version)</_Parameter1>
+			</AssemblyAttributes>
+			<AssemblyAttributes Include="AssemblyInformationalVersion">
+				<_Parameter1>$(Version)</_Parameter1>
+			</AssemblyAttributes>
+		</ItemGroup>
+		<MakeDir Directories="$(IntermediateOutputPath)" />
+		<WriteCodeFragment Language="C#" OutputFile="$(IntermediateOutputPath)Version.cs" AssemblyAttributes="@(AssemblyAttributes)" />
+		<ItemGroup>
+			<Compile Include="$(IntermediateOutputPath)Version.cs" />
+		</ItemGroup>
+	</Target>
+</Project>
