@@ -18,7 +18,7 @@
 		<Compile Include="..\PluginProviders.Shared\FilePluginArgs.cs" Link="FilePluginArgs.cs" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="AlphaOmega.PEReader" Version="1.3.4">
+		<PackageReference Include="AlphaOmega.PEReader" Version="1.3.5">
 			<IncludeAssets>all</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="SAL.Flatbed" Version="1.2.10">
