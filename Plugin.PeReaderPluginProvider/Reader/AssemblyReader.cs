@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using AlphaOmega.Debug;
@@ -65,6 +66,7 @@ namespace Plugin.PeReaderPluginProvider.Reader
 		public static AssemblyTypesInfo GetAssemblyTypes(String filePath)
 		{
 			List<String> types = new List<String>();
+			AssemblyName assemblyName = null;
 
 			try
 			{
@@ -76,6 +78,7 @@ namespace Plugin.PeReaderPluginProvider.Reader
 						{
 							AssemblyRefRow assemblyRef = tables.AssemblyRef.FirstOrDefault(a => a.AssemblyName.FullName == PluginType.Assembly.FullName);
 							if(assemblyRef != null)
+							{
 								foreach(InterfaceImplRow interfaceImpl in tables.InterfaceImpl)
 									if(interfaceImpl.Interface.RowIndex != null)
 									{
@@ -84,11 +87,15 @@ namespace Plugin.PeReaderPluginProvider.Reader
 										if(typeName == PluginType.FullName && typeRef.ResolutionScope.RowIndex == assemblyRef.Index)
 										{
 											TypeDefRow typeDef = interfaceImpl.Class;
-											if(typeDef.VisibilityMask == System.Reflection.TypeAttributes.Public
-												&& typeDef.ClassSemanticsMask == System.Reflection.TypeAttributes.AnsiClass)
+											if(typeDef.VisibilityMask == TypeAttributes.Public
+												&& typeDef.ClassSemanticsMask == TypeAttributes.AnsiClass)
 												types.Add(typeDef.TypeNamespace + "." + typeDef.TypeName);
 										}
 									}
+
+								if(types.Count > 0)
+									assemblyName = tables.Assembly.First().AssemblyName;
+							}
 						}
 					}
 			} catch(Exception exc)
@@ -99,7 +106,7 @@ namespace Plugin.PeReaderPluginProvider.Reader
 
 			return types.Count == 0
 				? null
-				: new AssemblyTypesInfo(filePath, types.ToArray());
+				: new AssemblyTypesInfo(filePath, assemblyName, types.ToArray());
 		}
 	}
 }

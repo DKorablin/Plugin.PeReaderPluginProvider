@@ -3,4 +3,4 @@
 	url = https://DKorablin@github.com/DKorablin/PluginProviders.Shared.git
 [submodule "Images.Shared"]
 	path = Images.Shared
-	url = https://github.com/DKorablin/Images.Shared
+	url = https://DKorablin@github.com/DKorablin/Images.Shared

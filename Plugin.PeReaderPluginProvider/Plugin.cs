@@ -56,10 +56,20 @@ namespace Plugin.PeReaderPluginProvider
 
 		void IPluginProvider.LoadPlugins()
 		{
+			Dictionary<String, AssemblyTypesInfo> loadedAssemblies = new Dictionary<String, AssemblyTypesInfo>();
+
 			foreach(String pluginPath in this.Args.PluginPath.Where(p => Directory.Exists(p)))
 			{
 				foreach(AssemblyTypesInfo info in AssemblyReader.Check(pluginPath))
-					this.LoadAssembly(info, ConnectMode.Startup);
+				{
+					if(info.AssemblyName != null && loadedAssemblies.TryGetValue(info.AssemblyName.FullName, out var loadedInfo))
+						this.Trace.TraceEvent(TraceEventType.Warning, 5, "Assembly {0} from path {1} already loaded from path {2}", info.AssemblyName.FullName, info.AssemblyPath, loadedInfo.AssemblyPath);
+					else
+					{
+						loadedAssemblies.Add(info.AssemblyName.FullName, info);
+						this.LoadAssembly(info, ConnectMode.Startup);
+					}
+				}
 
 				foreach(String extension in FilePluginArgs.LibraryExtensions)
 				{
@@ -78,23 +88,23 @@ namespace Plugin.PeReaderPluginProvider
 
 			Boolean isSuccess = this._recursiveAssemblyNameCheck.Add(assemblyName);
 			if(isSuccess)
-			{//This check is used when PluginProvied tries to resolve assembly while resolving assembly with the same name
+			{//This check is used when PluginProvider tries to resolve assembly while resolving assembly with the same name
 				AssemblyName targetName = new AssemblyName(assemblyName);
 				foreach(String pluginPath in this.Args.PluginPath.Where(p => Directory.Exists(p)))
 					foreach(String file in Directory.EnumerateFiles(pluginPath, "*.*", SearchOption.AllDirectories)
-						.Where(f => FilePluginArgs.CheckFileExtension(f)))//Поиск только файлов с расширением .dll (UPD: Added logic to search for all supported file extensions)
+						.Where(f => FilePluginArgs.CheckFileExtension(f)))
 						try
 						{
 							AssemblyName name = AssemblyName.GetAssemblyName(file);
 							if(name.FullName == targetName.FullName)
 								return Assembly.LoadFile(file);
-							//return assembly;//TODO: Reference DLL из оперативной памяти не цепляются!
+							//return assembly;//TODO: Reference DLL from operating system are not working
 						} catch(BadImageFormatException)
 						{
-							continue;
+							// Ignoring BadImageFormatException
 						} catch(FileLoadException)
 						{
-							continue;
+							// Ignoring FileLoadException
 						} catch(Exception exc)
 						{
 							exc.Data.Add("Library", file);
@@ -105,10 +115,9 @@ namespace Plugin.PeReaderPluginProvider
 			} else
 				this.Trace.TraceEvent(TraceEventType.Information, 5, "StackOverflowPrevention: Assembly {0} already requested to load", assemblyName);
 
+			this.Trace.TraceEvent(TraceEventType.Warning, 5, "The provider {2} is unable to locate the assembly {0} in the path {1}", assemblyName, String.Join(",", this.Args.PluginPath), this.GetType());
 			IPluginProvider parentProvider = ((IPluginProvider)this).ParentProvider;
-			return parentProvider == null
-				? null
-				: parentProvider.ResolveAssembly(assemblyName);
+			return parentProvider?.ResolveAssembly(assemblyName);
 		}
 
 		/// <summary>New file for check is available</summary>
@@ -136,8 +145,8 @@ namespace Plugin.PeReaderPluginProvider
 				if(info.Types.Length == 0)
 					throw new InvalidOperationException("Types is empty");
 
-				// Проверяем что плагин с таким источником ещё не загружен, если его уже загрузил родительский провайдер.
-				// Загрузка из ФС так что источник должен быть по любому уникальный.
+				// We check that the plugin with this source is not yet loaded if it has already been loaded by the parent provider.
+				// Loading from FS, so the source must be unique.
 				foreach(IPluginDescription plugin in this.Host.Plugins)
 					if(info.AssemblyPath.Equals(plugin.Source, StringComparison.InvariantCultureIgnoreCase))
 						return;
@@ -146,7 +155,7 @@ namespace Plugin.PeReaderPluginProvider
 				foreach(String type in info.Types)
 					this.Host.Plugins.LoadPlugin(assembly, type, info.AssemblyPath, mode);
 
-			} catch(BadImageFormatException exc)//Ошибка загрузки плагина. Можно почитать заголовок загружаемого файла, но мне влом
+			} catch(BadImageFormatException exc)//Plugin loading error. I could read the title of the file being loaded, but I'm too lazy.
 			{
 				exc.Data.Add("Library", info.AssemblyPath);
 				this.Trace.TraceData(TraceEventType.Error, 1, exc);

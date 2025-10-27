@@ -1,0 +1,17 @@
+<Project>
+	<PropertyGroup>
+		<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageVersion Include="SAL.Flatbed" Version="1.2.11">
+			<ExcludeAssets>runtime</ExcludeAssets>
+		</PackageVersion>
+		<PackageVersion Include="AlphaOmega.PEReader" Version="1.3.6" />
+		<PackageVersion Include="System.Configuration.ConfigurationManager" Version="7.0.0" />
+		<!--Analyzers-->
+		<GlobalPackageReference Include="SonarAnalyzer.CSharp" Version="10.8.0.113526">
+			<PrivateAssets>All</PrivateAssets>
+			<IncludeAssets>Runtime; Build; Native; contentfiles; Analyzers; buildtransitive</IncludeAssets>
+		</GlobalPackageReference>
+	</ItemGroup>
+</Project>
