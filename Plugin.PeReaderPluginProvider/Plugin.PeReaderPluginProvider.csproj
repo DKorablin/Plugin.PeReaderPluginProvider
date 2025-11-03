@@ -47,7 +47,7 @@
 		</PackageReference>
 	</ItemGroup>
 
-	<!-- Exclude assemblies from copy local based on ExcludeAssembliesFromOutput patterns -->
+	<!-- Exclude assemblies from copy to output binary folder -->
 	<Target Name="ExcludeSystemAssemblies" AfterTargets="ResolveReferences">
 		<ItemGroup>
 			<ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)" Condition="$([System.String]::Copy('%(Filename)').StartsWith('System.'))" />

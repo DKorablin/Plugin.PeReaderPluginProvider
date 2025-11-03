@@ -1,4 +1,5 @@
 # PE Reader Plugin Provider
+[![Auto build](https://github.com/DKorablin/Plugin.PeReaderPluginProvider/actions/workflows/release.yml/badge.svg)](https://github.com/DKorablin/Plugin.PeReaderPluginProvider/releases/latest)
 
 A specialized .NET Standard 2.0 plugin provider that enables loading assemblies by reading their PE (Portable Executable) structure before full assembly loading. This provider is designed to work with the SAL (Software Abstraction Layer) plugin system.
 
