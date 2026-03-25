@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using AlphaOmega.Debug;
 using AlphaOmega.Debug.CorDirectory.Meta.Tables;
@@ -59,7 +58,7 @@ namespace Plugin.PeReaderPluginProvider.Reader
 
 		public void Read(Object threadContext)
 		{
-			this.Info = Array.ConvertAll(this.FilePath, (p) => { return GetAssemblyTypes(p); });
+			this.Info = Array.ConvertAll(this.FilePath, GetAssemblyTypes);
 			this.OnDone.Set();
 		}
 
