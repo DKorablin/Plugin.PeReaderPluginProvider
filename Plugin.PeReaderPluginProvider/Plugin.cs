@@ -93,42 +93,58 @@ namespace Plugin.PeReaderPluginProvider
 				throw new ArgumentNullException(nameof(assemblyName), "Assembly name is required to resolve it");
 
 			Int32 requestCount = _recursiveAssemblyNameCheck.AddOrUpdate(assemblyName, 1, (key, value) => value + 1);
-			if(requestCount > 2)
+			if(requestCount > 1)
+				this.Trace.TraceEvent(TraceEventType.Information, 5, "StackOverflowPrevention: Attempt {0:N0} to resolve assembly {1} ", requestCount, assemblyName);
+			if(requestCount > Constants.MaxRecursiveAssemblyResolve)
 			{//This check is used when PluginProvider tries to resolve assembly while resolving assembly with the same name. (Fixed issues while loading: System.ServiceModel.Primitives.dll and CoreWCF.Primitives.dll)
-				this.Trace.TraceEvent(TraceEventType.Information, 5, "StackOverflowPrevention: Assembly {0} already requested to load", assemblyName);
+				this.Trace.TraceEvent(TraceEventType.Warning, 5, "StackOverflowPrevention: Final {0:N0} attempt to resolve assembly '{1}' failed. Terminating", requestCount, assemblyName);
 				return FallBackToParent();
 			}
 
 			try
 			{
-				AssemblyName targetName = new AssemblyName(assemblyName);
-				foreach(String pluginPath in this.Args.PluginPath.Where(p => Directory.Exists(p)))
-					foreach(String file in Directory.EnumerateFiles(pluginPath, "*.*", SearchOption.AllDirectories)
+				//Added relaxed check for candidates with the same name and public key token but different version. This is required for cases when plugin is built with different version of assembly than the one used in the host application. (Fixed issues while loading: System.ServiceModel.Primitives.dll and CoreWCF.Primitives.dll)
+				var candidates = new List<(String, AssemblyName)>();
+				var requestedName = new AssemblyName(assemblyName);
+
+				foreach(var pluginPath in this.Args.PluginPath.Where(p => Directory.Exists(p)))
+					foreach(var file in Directory.EnumerateFiles(pluginPath, "*.*", SearchOption.AllDirectories)
 						.Where(f => FilePluginArgs.CheckFileExtension(f) && !_badFilesList.Contains(f)))
+					{
 						try
 						{
-							AssemblyName name = AssemblyName.GetAssemblyName(file);
-							if(name.FullName == targetName.FullName)
+							AssemblyName candidateName = AssemblyName.GetAssemblyName(file);
+							if(candidateName.FullName == requestedName.FullName)
 								return Assembly.LoadFile(file);
-							//return assembly;//TODO: Reference DLL from operating system are not working
+
+							if(IsSameAssemblyIdentity(requestedName, candidateName))
+								candidates.Add((file, candidateName));
 						} catch(BadImageFormatException)
 						{
 							_badFilesList.Add(file);
-							// Ignoring BadImageFormatException
 						} catch(FileLoadException)
 						{
 							_badFilesList.Add(file);
-							// Ignoring FileLoadException
-						} catch(Exception exc)
+						} catch(Exception ex)
 						{
 							_badFilesList.Add(file);
-
-							exc.Data.Add("Library", file);
-							this.Trace.TraceData(TraceEventType.Error, 1, exc);
+							ex.Data["Library"] = file;
+							this.Trace.TraceData(TraceEventType.Error, 1, ex);
 						}
+					}
 
-				this.Trace.TraceEvent(TraceEventType.Warning, 5, "Assembly {0} can't be resolved in path {1} by provider {2} (attempt {3})", assemblyName, String.Join(",", this.Args.PluginPath), this.GetType(), requestCount);
-				return FallBackToParent();
+				this.Trace.TraceEvent(TraceEventType.Warning, 5, "Assembly {0} can't be resolved in path {1} by provider {2} (attempt {3}) (candidates: {4:N0})", assemblyName, String.Join(",", this.Args.PluginPath), this.GetType(), requestCount, candidates.Count);
+				var result = FallBackToParent();
+				if(result != null)
+					return result;
+
+				if(candidates.Count > 0)
+				{//Only after parent is tried to resolve assembly with exact FullName we can load candidate with the highest version to prevent loading of incompatible assembly. (Fixed issues while loading: System.ServiceModel.Primitives.dll and CoreWCF.Primitives.dll)
+					var candidate = candidates.OrderByDescending(a => a.Item2.Version).First();
+					this.Trace.TraceEvent(TraceEventType.Warning, 5, "Assembly {0} resolved to {1} with version {2} by provider {3}", assemblyName, candidate.Item1, candidate.Item2.Version, this.GetType());
+					return Assembly.LoadFile(candidate.Item1);
+				}
+				return null;
 			} finally
 			{
 				_recursiveAssemblyNameCheck.AddOrUpdate(assemblyName, 0, (key, value) => value - 1);
@@ -139,6 +155,21 @@ namespace Plugin.PeReaderPluginProvider
 				this.Trace.TraceEvent(TraceEventType.Warning, 5, "The provider {2} is unable to locate the assembly {0} in the path {1}", assemblyName, String.Join(",", this.Args.PluginPath), this.GetType());
 				IPluginProvider parentProvider = ((IPluginProvider)this).ParentProvider;
 				return parentProvider?.ResolveAssembly(assemblyName);
+			}
+
+			Boolean IsSameAssemblyIdentity(AssemblyName requested, AssemblyName candidate)
+			{
+				if(!String.Equals(requested.Name, candidate.Name, StringComparison.OrdinalIgnoreCase))
+					return false;
+
+				if(!String.Equals(requested.CultureName, candidate.CultureName, StringComparison.OrdinalIgnoreCase))
+					return false;
+
+				if(!(requested.GetPublicKeyToken() ?? Array.Empty<Byte>())
+					.SequenceEqual(candidate.GetPublicKeyToken() ?? Array.Empty<Byte>()))
+					return false;
+
+				return true;
 			}
 		}
 
@@ -173,7 +204,7 @@ namespace Plugin.PeReaderPluginProvider
 					if(info.AssemblyPath.Equals(plugin.Source, StringComparison.InvariantCultureIgnoreCase))
 						return;
 
-				Assembly assembly = Assembly.LoadFile(info.AssemblyPath);
+				Assembly assembly = Assembly.LoadFrom(info.AssemblyPath);
 				foreach(String type in info.Types)
 					this.Host.Plugins.LoadPlugin(assembly, type, info.AssemblyPath, mode);
 
