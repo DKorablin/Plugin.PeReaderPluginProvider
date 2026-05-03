@@ -20,9 +20,7 @@ namespace Plugin.PeReaderPluginProvider
 		// The list of files to ignore during loading to prevent multiple attempts to load invalid assemblies
 		private readonly HashSet<String> _badFilesList = new HashSet<String>();
 
-		private TraceSource _trace;
-
-		private TraceSource Trace { get => this._trace ?? (this._trace = Plugin.CreateTraceSource<Plugin>()); }
+		private ITraceSource Trace{ get; }
 
 		private IHost Host { get; }
 
@@ -37,9 +35,13 @@ namespace Plugin.PeReaderPluginProvider
 
 		/// <summary>Create instance if <see cref="Plugin"/> with reference to <see cref="IHost"/> instance.</summary>
 		/// <param name="host">The host instance reference.</param>
+		/// <param name="trace">The trace source reference.</param>
 		/// <exception cref="ArgumentNullException">The host should be valid.</exception>
-		public Plugin(IHost host)
-			=> this.Host = host ?? throw new ArgumentNullException(nameof(host));
+		public Plugin(IHost host, ITraceSource trace)
+		{
+			this.Host = host ?? throw new ArgumentNullException(nameof(host));
+			this.Trace = trace ?? throw new ArgumentNullException(nameof(trace));
+		}
 
 		Boolean IPlugin.OnConnection(ConnectMode mode)
 			=> true;
@@ -217,15 +219,6 @@ namespace Plugin.PeReaderPluginProvider
 				exc.Data.Add("Library", info.AssemblyPath);
 				this.Trace.TraceData(TraceEventType.Error, 1, exc);
 			}
-		}
-
-		internal static TraceSource CreateTraceSource<T>(String name = null) where T : IPlugin
-		{
-			TraceSource result = new TraceSource(typeof(T).Assembly.GetName().Name + name);
-			result.Switch.Level = SourceLevels.All;
-			result.Listeners.Remove("Default");
-			result.Listeners.AddRange(System.Diagnostics.Trace.Listeners);
-			return result;
 		}
 	}
 }
